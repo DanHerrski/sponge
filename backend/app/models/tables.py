@@ -50,6 +50,11 @@ class NuggetStatus(str, enum.Enum):
     parked = "parked"
 
 
+class UserFeedback(str, enum.Enum):
+    up = "up"
+    down = "down"
+
+
 class ChatRole(str, enum.Enum):
     user = "user"
     assistant = "assistant"
@@ -209,6 +214,11 @@ class Nugget(Base):
         nullable=False,
         default=NuggetStatus.new,
         server_default="new",
+    )
+    user_feedback: Mapped[UserFeedback | None] = mapped_column(
+        Enum(UserFeedback, name="user_feedback", create_constraint=True),
+        nullable=True,
+        default=None,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
