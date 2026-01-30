@@ -185,23 +185,11 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/api/chat_turn \
 
 ## 9. Deploy Frontend to GitHub Pages
 
-### Step 1: Build the Frontend
+The frontend is automatically built and deployed by GitHub Actions when you push to main. You just need to set up the workflow once.
 
-```bash
-cd frontend
+### One-Time Setup
 
-# Set your Supabase API URL and build
-NEXT_PUBLIC_API_BASE_URL=https://<project-ref>.supabase.co/functions/v1/api npm run build
-```
-
-This creates a static export in `frontend/out/`.
-
-### Step 2: Deploy to GitHub Pages
-
-**Option A: Manual (Quick Start)**
-1. Go to your repo → **Settings** → **Pages**
-2. Under "Build and deployment", select **GitHub Actions**
-3. Create `.github/workflows/deploy.yml`:
+1. **Create the workflow file** `.github/workflows/deploy.yml`:
 
 ```yaml
 name: Deploy to GitHub Pages
@@ -236,18 +224,23 @@ jobs:
           publish_dir: ./frontend/out
 ```
 
-4. Add repository secret: **Settings** → **Secrets** → **Actions** → **New repository secret**
+2. **Add GitHub secret**: Go to your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
    - Name: `NEXT_PUBLIC_API_BASE_URL`
    - Value: `https://<project-ref>.supabase.co/functions/v1/api`
 
-**Option B: Local Development**
+3. **Enable GitHub Pages**: Go to **Settings** → **Pages** → set Source to **GitHub Actions**
+
+4. **Push to main** - the Action runs automatically and deploys your site to `https://<username>.github.io/<repo>/`
+
+### Local Development (Optional)
+
+If you want to test locally before pushing:
 
 ```bash
-# Create .env.local for local testing
-echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:54321/functions/v1/api" > frontend/.env.local
-
-# Run dev server
-cd frontend && npm run dev
+cd frontend
+echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:54321/functions/v1/api" > .env.local
+npm install
+npm run dev
 ```
 
 ---
