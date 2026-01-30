@@ -55,24 +55,29 @@ postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.co
 
 ## 3. Required Secrets
 
-Configure these secrets in your deployment environment:
+You need to configure secrets in **two places**:
 
-| Secret | Where Used | How to Get |
-|--------|-----------|------------|
-| `SUPABASE_URL` | Edge Functions, Frontend | Project URL from dashboard |
-| `SUPABASE_ANON_KEY` | Frontend (optional) | Anon key from dashboard |
-| `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions only | Service role key from dashboard |
-| `OPENAI_API_KEY` | Edge Functions | [OpenAI Platform](https://platform.openai.com/api-keys) |
+### A. Supabase Edge Function Secrets
 
-### Setting Secrets for Edge Functions
+Set these via CLI or Supabase Dashboard (Settings → Edge Functions → Secrets):
 
 ```bash
-# Using Supabase CLI
+# Required: Your OpenAI API key for LLM extraction
 supabase secrets set OPENAI_API_KEY=sk-...
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
-# Or via Dashboard: Settings → Edge Functions → Secrets
+# Required: Service role key (from Settings → API → service_role secret)
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ```
+
+### B. GitHub Repository Secret
+
+Set this in GitHub (Settings → Secrets → Actions):
+
+| Secret | Value |
+|--------|-------|
+| `NEXT_PUBLIC_API_BASE_URL` | `https://<project-ref>.supabase.co/functions/v1/api` |
+
+This tells the frontend where to send API requests.
 
 ---
 
@@ -178,13 +183,71 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/api/chat_turn \
 
 ---
 
-## 9. Connect Frontend
+## 9. Deploy Frontend to GitHub Pages
 
-Update your frontend environment:
+### Step 1: Build the Frontend
 
 ```bash
-# .env or .env.local
-VITE_API_BASE_URL=https://<project-ref>.supabase.co/functions/v1/api
+cd frontend
+
+# Set your Supabase API URL and build
+NEXT_PUBLIC_API_BASE_URL=https://<project-ref>.supabase.co/functions/v1/api npm run build
+```
+
+This creates a static export in `frontend/out/`.
+
+### Step 2: Deploy to GitHub Pages
+
+**Option A: Manual (Quick Start)**
+1. Go to your repo → **Settings** → **Pages**
+2. Under "Build and deployment", select **GitHub Actions**
+3. Create `.github/workflows/deploy.yml`:
+
+```yaml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install and Build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend/out
+```
+
+4. Add repository secret: **Settings** → **Secrets** → **Actions** → **New repository secret**
+   - Name: `NEXT_PUBLIC_API_BASE_URL`
+   - Value: `https://<project-ref>.supabase.co/functions/v1/api`
+
+**Option B: Local Development**
+
+```bash
+# Create .env.local for local testing
+echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:54321/functions/v1/api" > frontend/.env.local
+
+# Run dev server
+cd frontend && npm run dev
 ```
 
 ---
@@ -211,6 +274,17 @@ VITE_API_BASE_URL=https://<project-ref>.supabase.co/functions/v1/api
 
 ## Next Steps
 
-1. [Configure Storage](./storage.md) for file uploads
-2. [Deploy Environment Guide](./deploy-env.md) for production settings
-3. Update frontend `VITE_API_BASE_URL` and deploy to GitHub Pages
+1. [Configure Storage](./storage.md) for file uploads (optional, for document uploads)
+2. [Deploy Environment Guide](./deploy-env.md) for all environment variable details
+
+## Quick Reference: Your Deployment Checklist
+
+- [ ] Create Supabase project at supabase.com
+- [ ] Copy your Project URL: `https://<ref>.supabase.co`
+- [ ] Enable pgvector extension in Database → Extensions
+- [ ] Apply migrations with `supabase db push` (or paste SQL manually)
+- [ ] Set Edge Function secrets: `supabase secrets set OPENAI_API_KEY=sk-...`
+- [ ] Deploy Edge Function: `supabase functions deploy api --no-verify-jwt`
+- [ ] Update CORS origins in Edge Function if using custom domain
+- [ ] Add GitHub secret `NEXT_PUBLIC_API_BASE_URL` with your Supabase URL
+- [ ] Push to main branch to trigger GitHub Pages deployment
