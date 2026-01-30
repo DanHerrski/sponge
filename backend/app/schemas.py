@@ -2,10 +2,18 @@
 
 import uuid
 from datetime import datetime
+from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-# --- Enums reused from models (as string literals for API serialization) ---
+
+# --- Enums for API ---
+
+
+class FeedbackValue(str, Enum):
+    up = "up"
+    down = "down"
 
 
 # --- Chat Turn ---
@@ -19,6 +27,17 @@ class ChatTurnRequest(BaseModel):
     message: str = Field(..., min_length=1, description="User's brain-dump text")
 
 
+class CapturedNuggetDimensionScores(BaseModel):
+    """Per-dimension scoring breakdown for a captured nugget."""
+
+    specificity: int = Field(ge=0, le=100)
+    novelty: int = Field(ge=0, le=100)
+    authority: int = Field(ge=0, le=100)
+    actionability: int = Field(ge=0, le=100)
+    story_energy: int = Field(ge=0, le=100)
+    audience_resonance: int = Field(ge=0, le=100)
+
+
 class CapturedNugget(BaseModel):
     nugget_id: uuid.UUID
     node_id: uuid.UUID
@@ -26,6 +45,13 @@ class CapturedNugget(BaseModel):
     nugget_type: str  # "Idea" | "Story" | "Framework"
     score: int = Field(ge=0, le=100)
     is_new: bool
+    user_feedback: FeedbackValue | None = Field(
+        default=None, description="User feedback: 'up' or 'down', null if not rated"
+    )
+    dimension_scores: CapturedNuggetDimensionScores | None = Field(
+        default=None,
+        description="Per-dimension score breakdown (collapsed by default in UI)",
+    )
 
 
 class NextQuestion(BaseModel):
@@ -117,3 +143,56 @@ class UploadResponse(BaseModel):
     filename: str
     size_bytes: int
     message: str
+
+
+# --- Nugget Feedback ---
+
+
+class NuggetFeedbackRequest(BaseModel):
+    feedback: FeedbackValue = Field(
+        ..., description="User feedback: 'up' to approve, 'down' to reject"
+    )
+
+
+class NuggetFeedbackResponse(BaseModel):
+    nugget_id: uuid.UUID
+    user_feedback: FeedbackValue
+    message: str
+
+
+# --- Node Edit ---
+
+
+class NodeEditRequest(BaseModel):
+    title: str | None = Field(
+        default=None, min_length=1, max_length=500, description="New node title"
+    )
+    summary: str | None = Field(default=None, min_length=1, description="New node summary")
+
+
+class NodeEditResponse(BaseModel):
+    node_id: uuid.UUID
+    title: str
+    summary: str
+    message: str
+
+
+# --- Extraction Failure Response ---
+
+
+class ExtractionFailureResponse(BaseModel):
+    """Response when extraction fails or produces low-quality results."""
+
+    turn_id: uuid.UUID
+    session_id: uuid.UUID
+    extraction_failed: bool = True
+    failure_reason: str = Field(
+        ..., description="Plain language explanation of why extraction failed"
+    )
+    recovery_question: str = Field(
+        ..., description="A single question to help the user provide better input"
+    )
+    captured_nuggets: list[CapturedNugget] = Field(default_factory=list)
+    graph_update_summary: str = ""
+    next_question: None = None
+    alternate_paths: list = Field(default_factory=list)

@@ -1,4 +1,4 @@
-"""GET /graph_view and GET /node/:id — serve knowledge graph data."""
+"""GET /graph_view, GET /node/:id, PATCH /node/:id — serve and edit knowledge graph data."""
 
 import uuid
 
@@ -15,6 +15,8 @@ from app.schemas import (
     GraphNode,
     GraphViewResponse,
     NodeDetailResponse,
+    NodeEditRequest,
+    NodeEditResponse,
     NuggetDetail,
     ProvenanceRecord,
 )
@@ -110,4 +112,65 @@ async def get_node_detail(
             for p in node.provenance_records
         ],
         nugget=nugget_detail,
+    )
+
+
+@router.patch("/node/{node_id}", response_model=NodeEditResponse)
+async def edit_node(
+    node_id: uuid.UUID,
+    request: NodeEditRequest,
+    db: AsyncSession = Depends(get_db),
+) -> NodeEditResponse:
+    """
+    Edit a node's title and/or summary.
+
+    Allows users to correct extraction errors or refine captured ideas.
+    - Overwrites existing values (no versioning for P0)
+    - Preserves provenance and original extraction metadata
+    - Also updates the associated nugget's title/summary if present
+    """
+    # Validate that at least one field is provided
+    if request.title is None and request.summary is None:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of 'title' or 'summary' must be provided",
+        )
+
+    # Fetch the node with its nugget
+    result = await db.execute(
+        select(Node)
+        .where(Node.id == node_id)
+        .options(selectinload(Node.nugget))
+    )
+    node = result.scalar_one_or_none()
+
+    if node is None:
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    # Track what was updated for the message
+    updated_fields = []
+
+    # Update node fields
+    if request.title is not None:
+        node.title = request.title
+        updated_fields.append("title")
+        # Also update the nugget's title if it exists
+        if node.nugget:
+            node.nugget.title = request.title
+
+    if request.summary is not None:
+        node.summary = request.summary
+        updated_fields.append("summary")
+        # Also update the nugget's short_summary if it exists
+        if node.nugget:
+            node.nugget.short_summary = request.summary
+
+    await db.commit()
+    await db.refresh(node)
+
+    return NodeEditResponse(
+        node_id=node.id,
+        title=node.title,
+        summary=node.summary,
+        message=f"Node updated: {', '.join(updated_fields)} changed.",
     )
