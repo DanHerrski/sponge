@@ -74,6 +74,14 @@ class ChatTurnResponse(BaseModel):
     graph_update_summary: str
     next_question: NextQuestion | None = None
     alternate_paths: list[AlternatePath] = Field(default_factory=list)
+    graph_nodes: list["GraphNode"] = Field(
+        default_factory=list,
+        description="Subset of graph nodes (5-20) most relevant to current turn",
+    )
+    graph_edges: list["GraphEdge"] = Field(
+        default_factory=list,
+        description="Edges between the returned graph nodes",
+    )
 
 
 # --- Graph View ---
