@@ -14,7 +14,13 @@ out/
 
 # Environment
 .env
-!backend/.env.example
+.env.local
+!.env.example
+
+# Supabase
+.supabase/
+supabase/.branches/
+supabase/.temp/
 
 # Uploads
 uploads/
