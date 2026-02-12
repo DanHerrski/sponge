@@ -1,6 +1,6 @@
 # Sponge MVP — Technical Decisions (P0)
 
-Reference: [`mvp_spec.md`](../mvp_spec.md) (P0 scope only)
+Reference: [`mvp_spec.md`](../../mvp_spec.md) (P0 scope only)
 
 These decisions cover only P0-essential infrastructure choices. Each decision is scoped to what we need for MVP — not what we might need at scale.
 
