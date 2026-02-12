@@ -1,6 +1,6 @@
 # Sponge MVP — Risk Register
 
-Reference: [`mvp_spec.md`](../mvp_spec.md) (P0 scope only)
+Reference: [`mvp_spec.md`](../../mvp_spec.md) (P0 scope only)
 
 ---
 
@@ -185,7 +185,7 @@ Reference: [`mvp_spec.md`](../mvp_spec.md) (P0 scope only)
 
 ## Kill / Pivot Criteria
 
-These criteria are tied directly to the MVP success metrics defined in [`mvp_spec.md` §2](../mvp_spec.md):
+These criteria are tied directly to the MVP success metrics defined in [`mvp_spec.md` §2](../../mvp_spec.md):
 
 | Metric | Target (spec §2) | Kill threshold | Action |
 |--------|-------------------|----------------|--------|

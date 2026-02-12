@@ -4,14 +4,23 @@ Conversational knowledge graph that helps busy executives brain-dump ideas and s
 
 ## P0 Steel Thread
 
-The MVP is built around a single end-to-end steel thread: chat input → nugget extraction → scoring → dedup → graph write → next-best question → UI render. All planning docs are in `/docs`:
+The MVP is built around a single end-to-end steel thread: chat input → nugget extraction → scoring → dedup → graph write → next-best question → UI render.
+
+### Planning & Product
+
+- [`docs/planning/90-day-bets-memo.md`](./docs/planning/90-day-bets-memo.md) — 90-day strategic bets (executive summary)
+- [`docs/planning/engineering-tracker.md`](./docs/planning/engineering-tracker.md) — Kanban task tracker (Todo / Doing / Done)
+- [`docs/planning/backlog.md`](./docs/planning/backlog.md) — P0 backlog (10 epics, 47 tasks)
+- [`docs/planning/risks.md`](./docs/planning/risks.md) — Top 10 risks + kill/pivot criteria
+
+### Architecture
 
 - [`mvp_spec.md`](./mvp_spec.md) — Full MVP specification (P0 scope)
-- [`docs/risks.md`](./docs/risks.md) — Top 10 risks + kill/pivot criteria
-- [`docs/technical-decisions.md`](./docs/technical-decisions.md) — P0 infrastructure decisions
-- [`docs/steel-thread.md`](./docs/steel-thread.md) — Steel thread definition + API contracts + acceptance criteria
-- [`docs/backlog.md`](./docs/backlog.md) — P0 backlog (10 epics, 47 tasks)
-- [`docs/schema.md`](./docs/schema.md) — Database schema (all P0 tables, fields, indexes)
+- [`docs/architecture/steel-thread.md`](./docs/architecture/steel-thread.md) — Steel thread definition + API contracts
+- [`docs/architecture/technical-decisions.md`](./docs/architecture/technical-decisions.md) — P0 infrastructure decisions
+- [`docs/architecture/schema.md`](./docs/architecture/schema.md) — Database schema (all P0 tables, fields, indexes)
+
+See [`docs/README.md`](./docs/README.md) for the full documentation index.
 
 ## Quick Start
 
@@ -49,5 +58,8 @@ frontend/
   src/
     app/             # Next.js pages
     components/      # React components
-docs/                # Planning & architecture docs
+docs/
+  planning/          # Bets, PRDs, sprints, tracker
+  architecture/      # Steel thread, tech decisions, schema
+  setup/             # Local dev, deploy, storage guides
 ```

@@ -1,6 +1,6 @@
 # Sponge MVP — Database Schema (P0)
 
-Reference: [`steel-thread.md`](./steel-thread.md) | [`mvp_spec.md`](../mvp_spec.md) §5, §13.1 | [`technical-decisions.md`](./technical-decisions.md) Decisions 1–2
+Reference: [`steel-thread.md`](./steel-thread.md) | [`mvp_spec.md`](../../mvp_spec.md) §5, §13.1 | [`technical-decisions.md`](./technical-decisions.md) Decisions 1–2
 
 All tables reside in PostgreSQL 16 with the pgvector extension. Managed via Alembic migrations.
 

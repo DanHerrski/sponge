@@ -1,6 +1,6 @@
 # Sponge MVP — Steel Thread
 
-Reference: [`mvp_spec.md`](../mvp_spec.md) | [`technical-decisions.md`](./technical-decisions.md) | [`risks.md`](./risks.md)
+Reference: [`mvp_spec.md`](../../mvp_spec.md) | [`technical-decisions.md`](./technical-decisions.md) | [`risks.md`](../planning/risks.md)
 
 ---
 

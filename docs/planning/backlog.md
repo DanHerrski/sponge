@@ -1,6 +1,6 @@
 # Sponge MVP — P0 Backlog
 
-Reference: [`steel-thread.md`](./steel-thread.md) | [`mvp_spec.md`](../mvp_spec.md) | [`technical-decisions.md`](./technical-decisions.md)
+Reference: [`steel-thread.md`](../architecture/steel-thread.md) | [`mvp_spec.md`](../../mvp_spec.md) | [`technical-decisions.md`](../architecture/technical-decisions.md)
 
 This backlog is organized around the steel thread. Epics 1–8 build the steel thread; Epics 9–10 extend it to complete P0 scope. Tasks within each epic are sized at ~0.5–2 days.
 
@@ -43,7 +43,7 @@ This backlog is organized around the steel thread. Epics 1–8 build the steel t
 **Objective:** Create the database schema that backs the knowledge graph, nuggets, and chat history.
 
 **Scope:**
-- All tables defined in [`steel-thread.md` § Minimal Persistence](./steel-thread.md#minimal-persistence-required)
+- All tables defined in [`steel-thread.md` § Minimal Persistence](../architecture/steel-thread.md#minimal-persistence-required)
 - SQLAlchemy async models + Alembic migration
 - Enum types for node_type, edge_type, nugget status, source_type, confidence
 - pgvector column on nodes table
