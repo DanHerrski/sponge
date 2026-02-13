@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.chat import router as chat_router
 from app.routes.graph import router as graph_router
 from app.routes.nugget import router as nugget_router
+from app.routes.onboarding import router as onboarding_router
 from app.routes.upload import router as upload_router
 
 app = FastAPI(title="Sponge API", version="0.1.0")
@@ -19,6 +20,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(graph_router)
 app.include_router(nugget_router)
+app.include_router(onboarding_router)
 app.include_router(upload_router)
 
 

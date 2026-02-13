@@ -30,6 +30,7 @@ from app.models.tables import (
     Nugget,
     NuggetType,
     Provenance,
+    Session,
     SourceType,
     ConfidenceLevel,
     UserFeedback,
@@ -198,7 +199,23 @@ class ExtractionPipeline:
         return result
 
     async def _get_session_context(self) -> str:
-        """Get context from existing high-value nuggets in session."""
+        """Get context from session onboarding data + existing high-value nuggets."""
+        context_parts: list[str] = []
+
+        # Include onboarding context (project name, topic, audience)
+        session_result = await self.db.execute(
+            select(Session).where(Session.id == self.session_id)
+        )
+        session = session_result.scalar_one_or_none()
+        if session:
+            if session.project_name and session.project_name != "Untitled":
+                context_parts.append(f"Project: {session.project_name}")
+            if session.topic:
+                context_parts.append(f"Topic: {session.topic}")
+            if session.audience:
+                context_parts.append(f"Target audience: {session.audience}")
+
+        # Include existing high-value nuggets
         stmt = (
             select(Nugget)
             .join(Node)
@@ -211,13 +228,12 @@ class ExtractionPipeline:
         result = await self.db.execute(stmt)
         nuggets = result.scalars().all()
 
-        if not nuggets:
-            return "No previous nuggets in session."
+        if nuggets:
+            context_parts.append("Previous high-value nuggets:")
+            for n in nuggets:
+                context_parts.append(f"- {n.title}: {n.short_summary}")
 
-        context_parts = []
-        for n in nuggets:
-            context_parts.append(f"- {n.title}: {n.short_summary}")
-        return "\n".join(context_parts)
+        return "\n".join(context_parts) if context_parts else "No previous context."
 
     async def _get_downvoted_context(self) -> str:
         """Get context about downvoted nuggets to avoid similar extractions."""
