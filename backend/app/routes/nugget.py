@@ -4,7 +4,7 @@ import uuid
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -103,7 +103,9 @@ async def get_nugget_feedback(
 @router.get("/nuggets", response_model=NuggetListResponse)
 async def list_nuggets(
     session_id: uuid.UUID,
-    nugget_type: str | None = Query(default=None, description="Filter by type: idea, story, framework"),
+    nugget_type: str | None = Query(
+        default=None, description="Filter by type: idea, story, framework"
+    ),
     status: str | None = Query(default=None, description="Filter by status: new, explored, parked"),
     sort_by: Literal["score", "created_at"] = Query(default="score", description="Sort field"),
     db: AsyncSession = Depends(get_db),

@@ -1,15 +1,17 @@
 """POST /upload — accept file, parse, chunk, extract nuggets via pipeline."""
 
 import logging
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 from app.llm.pipeline import ExtractionPipeline
-from app.models.tables import ChatRole, ChatTurn, Document, Session
+from app.models.tables import ChatRole, ChatTurn, Document
 from app.schemas import UploadNuggetSummary, UploadResponse
 from app.services.chunker import chunk_text
 from app.services.filestore import FileStore
@@ -44,8 +46,6 @@ async def upload_file(
 
     # Validate file type
     filename = file.filename or "upload"
-    import os
-
     ext = os.path.splitext(filename)[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
@@ -105,13 +105,10 @@ async def upload_file(
     all_nuggets = []
     pipeline = ExtractionPipeline(db, session_id)
 
-    # Create a synthetic chat turn for provenance tracking
-    from sqlalchemy import func, select
-    from app.models.tables import ChatTurn as CT
-
+    # Get next turn number for provenance tracking
     result = await db.execute(
-        select(func.coalesce(func.max(CT.turn_number), 0)).where(
-            CT.session_id == session_id
+        select(func.coalesce(func.max(ChatTurn.turn_number), 0)).where(
+            ChatTurn.session_id == session_id
         )
     )
     next_turn = result.scalar_one() + 1
