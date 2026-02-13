@@ -18,7 +18,6 @@ Evaluation hooks:
 - Log follow-up question engagement
 """
 
-
 import pytest
 
 from app.llm.client import _extract_json
@@ -233,8 +232,10 @@ class TestExtractionPipelineIntegration:
                                 " saving $6M."
                             ),
                             key_phrases=[
-                                "Stripe", "AWS support",
-                                "relationship", "$6M saved",
+                                "Stripe",
+                                "AWS support",
+                                "relationship",
+                                "$6M saved",
                             ],
                             confidence="high",
                         ),
@@ -248,7 +249,9 @@ class TestExtractionPipelineIntegration:
                                 " incidents."
                             ),
                             key_phrases=[
-                                "relationships", "proactive", "support",
+                                "relationships",
+                                "proactive",
+                                "support",
                             ],
                             confidence="high",
                         ),
@@ -328,15 +331,9 @@ class TestExtractionPipelineIntegration:
 
         # Log evaluation metrics
         scored = score_output.scored_nuggets
-        avg_score = (
-            sum(s.dimension_scores.total_score for s in scored)
-            / len(scored)
-        )
+        avg_score = sum(s.dimension_scores.total_score for s in scored) / len(scored)
         nugget_count = len(extract_output.nuggets)
-        print(
-            f"[EVAL] Strong anecdote - nugget_count:"
-            f" {nugget_count}, avg_score: {avg_score:.1f}"
-        )
+        print(f"[EVAL] Strong anecdote - nugget_count: {nugget_count}, avg_score: {avg_score:.1f}")
 
     def test_generic_advice_triggers_low_scores(self, mock_llm_responses):
         """Test that generic advice triggers low scores."""
@@ -353,15 +350,9 @@ class TestExtractionPipelineIntegration:
 
         # Log evaluation metrics
         scored = score_output.scored_nuggets
-        avg_score = (
-            sum(s.dimension_scores.total_score for s in scored)
-            / len(scored)
-        )
+        avg_score = sum(s.dimension_scores.total_score for s in scored) / len(scored)
         nugget_count = len(extract_output.nuggets)
-        print(
-            f"[EVAL] Generic advice - nugget_count:"
-            f" {nugget_count}, avg_score: {avg_score:.1f}"
-        )
+        print(f"[EVAL] Generic advice - nugget_count: {nugget_count}, avg_score: {avg_score:.1f}")
 
 
 # --- Evaluation Hooks ---
@@ -405,15 +396,13 @@ class EvaluationMetrics:
         return {
             "total_extractions": len(self.nugget_counts),
             "avg_nuggets_per_turn": (
-                sum(self.nugget_counts) / len(self.nugget_counts)
-                if self.nugget_counts else 0
+                sum(self.nugget_counts) / len(self.nugget_counts) if self.nugget_counts else 0
             ),
             "avg_score": sum(self.avg_scores) / len(self.avg_scores) if self.avg_scores else 0,
             "feedback_up_rate": self.feedback_up / total_feedback if total_feedback else 0,
             "feedback_down_rate": self.feedback_down / total_feedback if total_feedback else 0,
             "question_follow_rate": (
-                self.questions_followed / total_questions
-                if total_questions else 0
+                self.questions_followed / total_questions if total_questions else 0
             ),
         }
 

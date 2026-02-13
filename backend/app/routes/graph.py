@@ -31,16 +31,12 @@ async def get_graph_view(
 ) -> GraphViewResponse:
     # Fetch nodes for the session
     node_result = await db.execute(
-        select(Node)
-        .where(Node.session_id == session_id)
-        .options(selectinload(Node.nugget))
+        select(Node).where(Node.session_id == session_id).options(selectinload(Node.nugget))
     )
     nodes = node_result.scalars().all()
 
     # Fetch edges for the session
-    edge_result = await db.execute(
-        select(Edge).where(Edge.session_id == session_id)
-    )
+    edge_result = await db.execute(select(Edge).where(Edge.session_id == session_id))
     edges = edge_result.scalars().all()
 
     return GraphViewResponse(
@@ -138,9 +134,7 @@ async def edit_node(
 
     # Fetch the node with its nugget
     result = await db.execute(
-        select(Node)
-        .where(Node.id == node_id)
-        .options(selectinload(Node.nugget))
+        select(Node).where(Node.id == node_id).options(selectinload(Node.nugget))
     )
     node = result.scalar_one_or_none()
 

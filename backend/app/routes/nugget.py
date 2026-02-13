@@ -118,11 +118,7 @@ async def list_nuggets(
     - Status filter (new, explored, parked)
     - Sort by score (default, descending) or created_at (descending)
     """
-    stmt = (
-        select(Nugget)
-        .join(Node)
-        .where(Node.session_id == session_id)
-    )
+    stmt = select(Nugget).join(Node).where(Node.session_id == session_id)
 
     if nugget_type:
         stmt = stmt.where(Nugget.nugget_type == nugget_type)

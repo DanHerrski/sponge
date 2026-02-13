@@ -103,9 +103,7 @@ class ExtractionPipeline:
 
         # Step 1: Extract nuggets
         try:
-            extract_output = await self._extract_nuggets(
-                user_message, session_context
-            )
+            extract_output = await self._extract_nuggets(user_message, session_context)
             result.extracted_nuggets = extract_output.nuggets
         except ValidationRetryExhaustedError as e:
             logger.error(f"Extraction failed: {e}")
@@ -120,9 +118,7 @@ class ExtractionPipeline:
             return result
 
         # Filter low-confidence nuggets if we have alternatives
-        high_confidence = [
-            n for n in result.extracted_nuggets if n.confidence != "low"
-        ]
+        high_confidence = [n for n in result.extracted_nuggets if n.confidence != "low"]
         if high_confidence:
             result.extracted_nuggets = high_confidence
 
@@ -141,7 +137,8 @@ class ExtractionPipeline:
 
         # Check if all nuggets are below threshold
         valid_nuggets = [
-            s for s in result.scored_nuggets
+            s
+            for s in result.scored_nuggets
             if s.dimension_scores.total_score >= MIN_SCORE_THRESHOLD
         ]
         if not valid_nuggets:
@@ -201,9 +198,7 @@ class ExtractionPipeline:
         context_parts: list[str] = []
 
         # Include onboarding context (project name, topic, audience)
-        session_result = await self.db.execute(
-            select(Session).where(Session.id == self.session_id)
-        )
+        session_result = await self.db.execute(select(Session).where(Session.id == self.session_id))
         session = session_result.scalar_one_or_none()
         if session:
             if session.project_name and session.project_name != "Untitled":
@@ -298,9 +293,7 @@ class ExtractionPipeline:
         downvoted_context: str,
     ) -> ScoreOutput:
         """Score extracted nuggets."""
-        nuggets_json = json.dumps(
-            [n.model_dump() for n in nuggets], indent=2
-        )
+        nuggets_json = json.dumps([n.model_dump() for n in nuggets], indent=2)
         return await call_llm_with_schema(
             prompt_name="score_nuggets_v1",
             schema_class=ScoreOutput,
@@ -423,17 +416,12 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=(
-                        score_data.dimension_scores.total_score
-                        if score_data else 50
-                    ),
+                    score=(score_data.dimension_scores.total_score if score_data else 50),
                     dimension_scores=(
-                        score_data.dimension_scores.model_dump()
-                        if score_data else None
+                        score_data.dimension_scores.model_dump() if score_data else None
                     ),
                     missing_fields=(
-                        [f.value for f in score_data.missing_fields]
-                        if score_data else []
+                        [f.value for f in score_data.missing_fields] if score_data else []
                     ),
                     next_questions=[],
                 )
@@ -483,17 +471,12 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=(
-                        score_data.dimension_scores.total_score
-                        if score_data else 50
-                    ),
+                    score=(score_data.dimension_scores.total_score if score_data else 50),
                     dimension_scores=(
-                        score_data.dimension_scores.model_dump()
-                        if score_data else None
+                        score_data.dimension_scores.model_dump() if score_data else None
                     ),
                     missing_fields=(
-                        [f.value for f in score_data.missing_fields]
-                        if score_data else []
+                        [f.value for f in score_data.missing_fields] if score_data else []
                     ),
                     next_questions=[],
                 )
@@ -562,13 +545,9 @@ class ExtractionPipeline:
                     "title": nugget.title,
                     "summary": nugget.summary,
                     "type": nugget.nugget_type.value,
-                    "score": (
-                        score_data.dimension_scores.total_score
-                        if score_data else 50
-                    ),
+                    "score": (score_data.dimension_scores.total_score if score_data else 50),
                     "missing_fields": (
-                        [f.value for f in score_data.missing_fields]
-                        if score_data else []
+                        [f.value for f in score_data.missing_fields] if score_data else []
                     ),
                 }
             )
@@ -583,9 +562,7 @@ class ExtractionPipeline:
             },
         )
 
-    def _default_scores(
-        self, nuggets: list[CandidateNugget]
-    ) -> list[ScoredNugget]:
+    def _default_scores(self, nuggets: list[CandidateNugget]) -> list[ScoredNugget]:
         """Generate default scores when LLM scoring fails."""
         from app.llm.schemas import MissingField, NuggetDimensionScores
 
@@ -605,9 +582,7 @@ class ExtractionPipeline:
             for i in range(len(nuggets))
         ]
 
-    def _default_questions(
-        self, nuggets: list[CandidateNugget]
-    ) -> list[NextQuestionCandidate]:
+    def _default_questions(self, nuggets: list[CandidateNugget]) -> list[NextQuestionCandidate]:
         """Generate default questions when LLM question generation fails."""
         from app.llm.schemas import GapType
 

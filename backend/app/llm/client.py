@@ -158,8 +158,7 @@ async def _call_stub(prompt: str, model: str = "stub") -> str:
                     },
                 ],
                 "why_primary": (
-                    "A concrete example would make this insight"
-                    " more compelling and memorable."
+                    "A concrete example would make this insight more compelling and memorable."
                 ),
             }
         )
@@ -259,9 +258,7 @@ async def call_llm_with_schema(
             return schema_class.model_validate(data)
         except (ValueError, ValidationError) as e:
             last_error = e
-            logger.warning(
-                f"Validation failed on attempt {attempt + 1}: {e}"
-            )
+            logger.warning(f"Validation failed on attempt {attempt + 1}: {e}")
 
             if attempt < max_retries:
                 # Retry with correction prompt

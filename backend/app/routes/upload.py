@@ -168,14 +168,10 @@ async def upload_file(
     for n in sorted_nuggets[:3]:
         if n.missing_fields:
             gap = n.missing_fields[0] if n.missing_fields else "example"
-            deep_dive_options.append(
-                f"Explore '{n.title}' — needs {gap}"
-            )
+            deep_dive_options.append(f"Explore '{n.title}' — needs {gap}")
     # Pad to 3 options
     while len(deep_dive_options) < 3 and sorted_nuggets:
-        deep_dive_options.append(
-            f"Tell me more about '{sorted_nuggets[0].title}'"
-        )
+        deep_dive_options.append(f"Tell me more about '{sorted_nuggets[0].title}'")
 
     # Store assistant response
     assistant_turn = ChatTurn(

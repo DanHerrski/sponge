@@ -58,22 +58,26 @@ def chunk_text(text: str) -> list[Chunk]:
         if len(para) > MAX_CHUNK_CHARS:
             # Flush current buffer first
             if current_text.strip():
-                chunks.append(Chunk(
-                    index=len(chunks),
-                    text=current_text.strip(),
-                    char_start=current_start,
-                    char_end=current_start + len(current_text.strip()),
-                ))
+                chunks.append(
+                    Chunk(
+                        index=len(chunks),
+                        text=current_text.strip(),
+                        char_start=current_start,
+                        char_end=current_start + len(current_text.strip()),
+                    )
+                )
                 current_text = ""
 
             # Split the long paragraph into sentences
             for sentence_chunk in _split_long_text(para):
-                chunks.append(Chunk(
-                    index=len(chunks),
-                    text=sentence_chunk.strip(),
-                    char_start=para_start,
-                    char_end=para_start + len(sentence_chunk.strip()),
-                ))
+                chunks.append(
+                    Chunk(
+                        index=len(chunks),
+                        text=sentence_chunk.strip(),
+                        char_start=para_start,
+                        char_end=para_start + len(sentence_chunk.strip()),
+                    )
+                )
             char_offset = para_start + len(para)
             current_start = char_offset
             continue
@@ -82,12 +86,14 @@ def chunk_text(text: str) -> list[Chunk]:
         combined = (current_text + "\n\n" + para).strip() if current_text else para
         if len(combined) > IDEAL_CHUNK_CHARS and current_text.strip():
             # Flush current chunk
-            chunks.append(Chunk(
-                index=len(chunks),
-                text=current_text.strip(),
-                char_start=current_start,
-                char_end=current_start + len(current_text.strip()),
-            ))
+            chunks.append(
+                Chunk(
+                    index=len(chunks),
+                    text=current_text.strip(),
+                    char_start=current_start,
+                    char_end=current_start + len(current_text.strip()),
+                )
+            )
             current_text = para
             current_start = para_start
         else:
@@ -99,12 +105,14 @@ def chunk_text(text: str) -> list[Chunk]:
 
     # Flush remaining
     if current_text.strip():
-        chunks.append(Chunk(
-            index=len(chunks),
-            text=current_text.strip(),
-            char_start=current_start,
-            char_end=current_start + len(current_text.strip()),
-        ))
+        chunks.append(
+            Chunk(
+                index=len(chunks),
+                text=current_text.strip(),
+                char_start=current_start,
+                char_end=current_start + len(current_text.strip()),
+            )
+        )
 
     return chunks
 

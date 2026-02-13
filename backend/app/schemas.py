@@ -183,9 +183,7 @@ class NuggetListResponse(BaseModel):
 
 
 class NuggetStatusRequest(BaseModel):
-    status: str = Field(
-        ..., description="New status: 'new', 'explored', or 'parked'"
-    )
+    status: str = Field(..., description="New status: 'new', 'explored', or 'parked'")
 
 
 class NuggetStatusResponse(BaseModel):

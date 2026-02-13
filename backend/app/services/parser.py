@@ -29,9 +29,7 @@ def extract_text(content: bytes, filename: str) -> str:
     elif ext == ".docx":
         return _parse_docx(content)
     else:
-        raise ValueError(
-            f"Unsupported file format: {ext}. Supported formats: .txt, .docx"
-        )
+        raise ValueError(f"Unsupported file format: {ext}. Supported formats: .txt, .docx")
 
 
 def _parse_txt(content: bytes) -> str:
@@ -45,8 +43,7 @@ def _parse_docx(content: bytes) -> str:
         from docx import Document
     except ImportError:
         raise ImportError(
-            "python-docx is required for .docx parsing. "
-            "Install it with: pip install python-docx"
+            "python-docx is required for .docx parsing. Install it with: pip install python-docx"
         )
 
     doc = Document(io.BytesIO(content))
