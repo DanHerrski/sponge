@@ -9,7 +9,9 @@ Prompts are designed to:
 
 # --- Extraction Prompt v1 ---
 
-EXTRACT_NUGGETS_V1 = """You are extracting high-signal knowledge nuggets from a brain-dump conversation.
+EXTRACT_NUGGETS_V1 = """\
+You are extracting high-signal knowledge nuggets from a \
+brain-dump conversation.
 
 Your task is to identify 2-6 distinct nuggets from the user's message. Each nugget should be:
 - SPECIFIC: Based on real experience, not generic advice
@@ -136,7 +138,9 @@ Output your response as valid JSON:
 
 # --- Dedup Decision Prompt v1 ---
 
-DEDUP_DECISION_V1 = """You are deciding whether new nuggets duplicate existing knowledge graph nodes.
+DEDUP_DECISION_V1 = """\
+You are deciding whether new nuggets duplicate existing knowledge \
+graph nodes.
 
 For each candidate nugget, decide:
 - "create": This is genuinely new - create a new node
@@ -151,7 +155,8 @@ DECISION RULES:
 4. "link_related" if they share themes but are distinct insights
 
 USER-EDITED NODES:
-If a user has edited a node, they've invested in it. PREFER merging into user-edited nodes over raw extracted ones when appropriate.
+If a user has edited a node, they've invested in it. PREFER merging \
+into user-edited nodes over raw extracted ones when appropriate.
 
 Candidate nuggets:
 {candidates_json}
@@ -262,5 +267,6 @@ PROMPTS = {
 def get_prompt(name: str) -> str:
     """Get a prompt by name."""
     if name not in PROMPTS:
-        raise ValueError(f"Unknown prompt: {name}. Available: {list(PROMPTS.keys())}")
+        available = list(PROMPTS.keys())
+        raise ValueError(f"Unknown prompt: {name}. Available: {available}")
     return PROMPTS[name]

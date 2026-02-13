@@ -1,16 +1,22 @@
-"""POST /nugget/:id/feedback — allow users to approve/reject extracted nuggets."""
+"""Nugget endpoints: list, feedback, and status management."""
 
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.tables import Nugget, UserFeedback
+from app.models.tables import Node, Nugget, NuggetStatus, UserFeedback
 from app.schemas import (
+    FeedbackValue,
     NuggetFeedbackRequest,
     NuggetFeedbackResponse,
+    NuggetListItem,
+    NuggetListResponse,
+    NuggetStatusRequest,
+    NuggetStatusResponse,
 )
 
 router = APIRouter(tags=["nugget"])
@@ -92,3 +98,97 @@ async def get_nugget_feedback(
         "user_feedback": nugget.user_feedback.value if nugget.user_feedback else None,
         "score": nugget.score,
     }
+
+
+@router.get("/nuggets", response_model=NuggetListResponse)
+async def list_nuggets(
+    session_id: uuid.UUID,
+    nugget_type: str | None = Query(
+        default=None, description="Filter by type: idea, story, framework"
+    ),
+    status: str | None = Query(default=None, description="Filter by status: new, explored, parked"),
+    sort_by: Literal["score", "created_at"] = Query(default="score", description="Sort field"),
+    db: AsyncSession = Depends(get_db),
+) -> NuggetListResponse:
+    """
+    List all nuggets for a session with optional filters and sorting.
+
+    Supports:
+    - Type filter (idea, story, framework)
+    - Status filter (new, explored, parked)
+    - Sort by score (default, descending) or created_at (descending)
+    """
+    stmt = select(Nugget).join(Node).where(Node.session_id == session_id)
+
+    if nugget_type:
+        stmt = stmt.where(Nugget.nugget_type == nugget_type)
+
+    if status:
+        stmt = stmt.where(Nugget.status == status)
+
+    if sort_by == "score":
+        stmt = stmt.order_by(Nugget.score.desc())
+    else:
+        stmt = stmt.order_by(Nugget.created_at.desc())
+
+    result = await db.execute(stmt)
+    nuggets = result.scalars().all()
+
+    items = [
+        NuggetListItem(
+            nugget_id=n.id,
+            node_id=n.node_id,
+            title=n.title,
+            short_summary=n.short_summary,
+            nugget_type=n.nugget_type.value,
+            score=n.score,
+            status=n.status.value,
+            user_feedback=FeedbackValue(n.user_feedback.value) if n.user_feedback else None,
+            missing_fields=n.missing_fields or [],
+            created_at=n.created_at,
+        )
+        for n in nuggets
+    ]
+
+    return NuggetListResponse(nuggets=items, total=len(items))
+
+
+@router.post("/nugget/{nugget_id}/status", response_model=NuggetStatusResponse)
+async def update_nugget_status(
+    nugget_id: uuid.UUID,
+    request: NuggetStatusRequest,
+    db: AsyncSession = Depends(get_db),
+) -> NuggetStatusResponse:
+    """
+    Update a nugget's status (New -> Explored / Parked).
+
+    Valid transitions:
+    - new -> explored (user is exploring this nugget)
+    - new -> parked (user wants to defer this nugget)
+    - explored -> parked (done exploring, park it)
+    - parked -> new (re-surface a parked nugget)
+    """
+    # Validate status value
+    try:
+        new_status = NuggetStatus(request.status)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status: {request.status}. Must be one of: new, explored, parked",
+        )
+
+    result = await db.execute(select(Nugget).where(Nugget.id == nugget_id))
+    nugget = result.scalar_one_or_none()
+
+    if nugget is None:
+        raise HTTPException(status_code=404, detail="Nugget not found")
+
+    old_status = nugget.status.value
+    nugget.status = new_status
+    await db.commit()
+
+    return NuggetStatusResponse(
+        nugget_id=nugget.id,
+        status=new_status.value,
+        message=f"Nugget status changed from '{old_status}' to '{new_status.value}'.",
+    )

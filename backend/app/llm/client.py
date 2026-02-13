@@ -26,7 +26,7 @@ class LLMError(Exception):
     pass
 
 
-class ValidationRetryExhausted(Exception):
+class ValidationRetryExhaustedError(Exception):
     """Validation failed after retry."""
 
     pass
@@ -75,7 +75,12 @@ async def _call_stub(prompt: str, model: str = "stub") -> str:
                     {
                         "nugget_type": "idea",
                         "title": "Stub extracted insight from user input",
-                        "summary": "This is a stub extraction. In production, the LLM would extract real insights from the user's message based on their specific content and experience.",
+                        "summary": (
+                            "This is a stub extraction. In production,"
+                            " the LLM would extract real insights from"
+                            " the user's message based on their"
+                            " specific content and experience."
+                        ),
                         "key_phrases": ["stub", "extraction"],
                         "confidence": "medium",
                     }
@@ -152,7 +157,9 @@ async def _call_stub(prompt: str, model: str = "stub") -> str:
                         "gap_criticality_score": 60,
                     },
                 ],
-                "why_primary": "A concrete example would make this insight more compelling and memorable.",
+                "why_primary": (
+                    "A concrete example would make this insight more compelling and memorable."
+                ),
             }
         )
     else:
@@ -236,7 +243,7 @@ async def call_llm_with_schema(
         Validated Pydantic model instance
 
     Raises:
-        ValidationRetryExhausted: If validation fails after all retries
+        ValidationRetryExhaustedError: If validation fails after all retries
         LLMError: If LLM call fails
     """
     prompt_template = get_prompt(prompt_name)
@@ -251,9 +258,7 @@ async def call_llm_with_schema(
             return schema_class.model_validate(data)
         except (ValueError, ValidationError) as e:
             last_error = e
-            logger.warning(
-                f"Validation failed on attempt {attempt + 1}: {e}"
-            )
+            logger.warning(f"Validation failed on attempt {attempt + 1}: {e}")
 
             if attempt < max_retries:
                 # Retry with correction prompt
@@ -264,6 +269,6 @@ async def call_llm_with_schema(
                 )
                 response = await call_llm(correction_prompt, model)
 
-    raise ValidationRetryExhausted(
+    raise ValidationRetryExhaustedError(
         f"Failed to get valid response after {max_retries + 1} attempts: {last_error}"
     )

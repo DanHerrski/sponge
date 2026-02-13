@@ -4,13 +4,12 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.llm.client import ValidationRetryExhausted, call_llm_with_schema
+from app.llm.client import ValidationRetryExhaustedError, call_llm_with_schema
 from app.llm.schemas import (
     CandidateNugget,
     DedupDecision,
@@ -18,11 +17,11 @@ from app.llm.schemas import (
     ExtractOutput,
     NextQuestionCandidate,
     NextQuestionOutput,
-    ScoreOutput,
     ScoredNugget,
+    ScoreOutput,
 )
 from app.models.tables import (
-    ChatTurn,
+    ConfidenceLevel,
     Edge,
     EdgeType,
     Node,
@@ -30,8 +29,8 @@ from app.models.tables import (
     Nugget,
     NuggetType,
     Provenance,
+    Session,
     SourceType,
-    ConfidenceLevel,
     UserFeedback,
 )
 
@@ -104,11 +103,9 @@ class ExtractionPipeline:
 
         # Step 1: Extract nuggets
         try:
-            extract_output = await self._extract_nuggets(
-                user_message, session_context
-            )
+            extract_output = await self._extract_nuggets(user_message, session_context)
             result.extracted_nuggets = extract_output.nuggets
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Extraction failed: {e}")
             result.extraction_failed = True
             result.failure_reason = "I couldn't identify any distinct ideas from what you shared."
@@ -121,9 +118,7 @@ class ExtractionPipeline:
             return result
 
         # Filter low-confidence nuggets if we have alternatives
-        high_confidence = [
-            n for n in result.extracted_nuggets if n.confidence != "low"
-        ]
+        high_confidence = [n for n in result.extracted_nuggets if n.confidence != "low"]
         if high_confidence:
             result.extracted_nuggets = high_confidence
 
@@ -135,14 +130,15 @@ class ExtractionPipeline:
                 downvoted_context,
             )
             result.scored_nuggets = score_output.scored_nuggets
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Scoring failed: {e}")
             # Use default scores on failure
             result.scored_nuggets = self._default_scores(result.extracted_nuggets)
 
         # Check if all nuggets are below threshold
         valid_nuggets = [
-            s for s in result.scored_nuggets
+            s
+            for s in result.scored_nuggets
             if s.dimension_scores.total_score >= MIN_SCORE_THRESHOLD
         ]
         if not valid_nuggets:
@@ -158,7 +154,7 @@ class ExtractionPipeline:
                 existing_nodes,
             )
             result.dedup_decisions = dedup_output
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Dedup failed: {e}")
             # Default to create all
             result.dedup_decisions = [
@@ -189,7 +185,7 @@ class ExtractionPipeline:
             )
             result.questions = questions_output.candidates
             result.why_primary = questions_output.why_primary
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Question generation failed: {e}")
             # Use default question
             result.questions = self._default_questions(result.extracted_nuggets)
@@ -198,7 +194,21 @@ class ExtractionPipeline:
         return result
 
     async def _get_session_context(self) -> str:
-        """Get context from existing high-value nuggets in session."""
+        """Get context from session onboarding data + existing high-value nuggets."""
+        context_parts: list[str] = []
+
+        # Include onboarding context (project name, topic, audience)
+        session_result = await self.db.execute(select(Session).where(Session.id == self.session_id))
+        session = session_result.scalar_one_or_none()
+        if session:
+            if session.project_name and session.project_name != "Untitled":
+                context_parts.append(f"Project: {session.project_name}")
+            if session.topic:
+                context_parts.append(f"Topic: {session.topic}")
+            if session.audience:
+                context_parts.append(f"Target audience: {session.audience}")
+
+        # Include existing high-value nuggets
         stmt = (
             select(Nugget)
             .join(Node)
@@ -211,13 +221,12 @@ class ExtractionPipeline:
         result = await self.db.execute(stmt)
         nuggets = result.scalars().all()
 
-        if not nuggets:
-            return "No previous nuggets in session."
+        if nuggets:
+            context_parts.append("Previous high-value nuggets:")
+            for n in nuggets:
+                context_parts.append(f"- {n.title}: {n.short_summary}")
 
-        context_parts = []
-        for n in nuggets:
-            context_parts.append(f"- {n.title}: {n.short_summary}")
-        return "\n".join(context_parts)
+        return "\n".join(context_parts) if context_parts else "No previous context."
 
     async def _get_downvoted_context(self) -> str:
         """Get context about downvoted nuggets to avoid similar extractions."""
@@ -284,9 +293,7 @@ class ExtractionPipeline:
         downvoted_context: str,
     ) -> ScoreOutput:
         """Score extracted nuggets."""
-        nuggets_json = json.dumps(
-            [n.model_dump() for n in nuggets], indent=2
-        )
+        nuggets_json = json.dumps([n.model_dump() for n in nuggets], indent=2)
         return await call_llm_with_schema(
             prompt_name="score_nuggets_v1",
             schema_class=ScoreOutput,
@@ -356,8 +363,16 @@ class ExtractionPipeline:
                 DedupDecision(
                     nugget_index=i,
                     outcome=outcome,
-                    existing_node_id=best_match.node_id if best_match and outcome != DedupOutcome.create else None,
-                    merge_rationale=f"Similar to: {best_match.title}" if best_match and outcome != DedupOutcome.create else None,
+                    existing_node_id=(
+                        best_match.node_id
+                        if best_match and outcome != DedupOutcome.create
+                        else None
+                    ),
+                    merge_rationale=(
+                        f"Similar to: {best_match.title}"
+                        if best_match and outcome != DedupOutcome.create
+                        else None
+                    ),
                     similarity_score=best_similarity,
                 )
             )
@@ -401,9 +416,13 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=score_data.dimension_scores.total_score if score_data else 50,
-                    dimension_scores=score_data.dimension_scores.model_dump() if score_data else None,
-                    missing_fields=[f.value for f in score_data.missing_fields] if score_data else [],
+                    score=(score_data.dimension_scores.total_score if score_data else 50),
+                    dimension_scores=(
+                        score_data.dimension_scores.model_dump() if score_data else None
+                    ),
+                    missing_fields=(
+                        [f.value for f in score_data.missing_fields] if score_data else []
+                    ),
                     next_questions=[],
                 )
                 self.db.add(nugget_record)
@@ -452,9 +471,13 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=score_data.dimension_scores.total_score if score_data else 50,
-                    dimension_scores=score_data.dimension_scores.model_dump() if score_data else None,
-                    missing_fields=[f.value for f in score_data.missing_fields] if score_data else [],
+                    score=(score_data.dimension_scores.total_score if score_data else 50),
+                    dimension_scores=(
+                        score_data.dimension_scores.model_dump() if score_data else None
+                    ),
+                    missing_fields=(
+                        [f.value for f in score_data.missing_fields] if score_data else []
+                    ),
                     next_questions=[],
                 )
                 self.db.add(nugget_record)
@@ -522,8 +545,10 @@ class ExtractionPipeline:
                     "title": nugget.title,
                     "summary": nugget.summary,
                     "type": nugget.nugget_type.value,
-                    "score": score_data.dimension_scores.total_score if score_data else 50,
-                    "missing_fields": [f.value for f in score_data.missing_fields] if score_data else [],
+                    "score": (score_data.dimension_scores.total_score if score_data else 50),
+                    "missing_fields": (
+                        [f.value for f in score_data.missing_fields] if score_data else []
+                    ),
                 }
             )
 
@@ -537,9 +562,7 @@ class ExtractionPipeline:
             },
         )
 
-    def _default_scores(
-        self, nuggets: list[CandidateNugget]
-    ) -> list[ScoredNugget]:
+    def _default_scores(self, nuggets: list[CandidateNugget]) -> list[ScoredNugget]:
         """Generate default scores when LLM scoring fails."""
         from app.llm.schemas import MissingField, NuggetDimensionScores
 
@@ -559,9 +582,7 @@ class ExtractionPipeline:
             for i in range(len(nuggets))
         ]
 
-    def _default_questions(
-        self, nuggets: list[CandidateNugget]
-    ) -> list[NextQuestionCandidate]:
+    def _default_questions(self, nuggets: list[CandidateNugget]) -> list[NextQuestionCandidate]:
         """Generate default questions when LLM question generation fails."""
         from app.llm.schemas import GapType
 

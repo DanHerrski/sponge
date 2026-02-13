@@ -116,6 +116,49 @@ export interface NodeEditResponse {
   message: string;
 }
 
+export interface UploadNuggetSummary {
+  nugget_id: string;
+  title: string;
+  nugget_type: string;
+  score: number;
+}
+
+export interface UploadResponse {
+  document_id: string;
+  filename: string;
+  size_bytes: number;
+  message: string;
+  nugget_count: number;
+  top_nuggets: UploadNuggetSummary[];
+  deep_dive_options: string[];
+}
+
+export interface NuggetListItem {
+  nugget_id: string;
+  node_id: string;
+  title: string;
+  short_summary: string;
+  nugget_type: string;
+  score: number;
+  status: 'new' | 'explored' | 'parked';
+  user_feedback: 'up' | 'down' | null;
+  missing_fields: string[];
+  created_at: string;
+}
+
+export interface NuggetListResponse {
+  nuggets: NuggetListItem[];
+  total: number;
+}
+
+export interface OnboardingResponse {
+  session_id: string;
+  project_name: string;
+  topic: string | null;
+  audience: string | null;
+  message: string;
+}
+
 // --- API Client ---
 
 class ApiError extends Error {
@@ -137,6 +180,26 @@ async function request<T>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new ApiError(response.status, data.error || 'Request failed');
+  }
+
+  return data as T;
+}
+
+async function requestMultipart<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
   });
 
   const data = await response.json();
@@ -203,6 +266,66 @@ export async function editNode(
   return request<NodeEditResponse>(`/node/${nodeId}`, {
     method: 'PATCH',
     body: JSON.stringify(updates),
+  });
+}
+
+/**
+ * Upload a document for nugget extraction
+ */
+export async function uploadFile(
+  sessionId: string,
+  file: File
+): Promise<UploadResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return requestMultipart<UploadResponse>(
+    `/upload?session_id=${sessionId}`,
+    formData
+  );
+}
+
+/**
+ * List nuggets for a session with optional filters
+ */
+export async function listNuggets(
+  sessionId: string,
+  options?: { nuggetType?: string; status?: string; sortBy?: 'score' | 'created_at' }
+): Promise<NuggetListResponse> {
+  const params = new URLSearchParams({ session_id: sessionId });
+  if (options?.nuggetType) params.set('nugget_type', options.nuggetType);
+  if (options?.status) params.set('status', options.status);
+  if (options?.sortBy) params.set('sort_by', options.sortBy);
+  return request<NuggetListResponse>(`/nuggets?${params.toString()}`);
+}
+
+/**
+ * Update a nugget's status
+ */
+export async function updateNuggetStatus(
+  nuggetId: string,
+  status: 'new' | 'explored' | 'parked'
+): Promise<{ nugget_id: string; status: string; message: string }> {
+  return request(`/nugget/${nuggetId}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status }),
+  });
+}
+
+/**
+ * Create a session with onboarding context
+ */
+export async function onboard(
+  projectName: string,
+  topic?: string,
+  audience?: string
+): Promise<OnboardingResponse> {
+  return request<OnboardingResponse>('/onboard', {
+    method: 'POST',
+    body: JSON.stringify({
+      project_name: projectName,
+      topic: topic || null,
+      audience: audience || null,
+    }),
   });
 }
 

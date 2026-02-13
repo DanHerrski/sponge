@@ -5,7 +5,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # --- Extraction Schemas ---
 
 
@@ -18,9 +17,7 @@ class NuggetType(str, Enum):
 class CandidateNugget(BaseModel):
     """A candidate nugget extracted from user input."""
 
-    nugget_type: NuggetType = Field(
-        ..., description="Type of nugget: idea, story, or framework"
-    )
+    nugget_type: NuggetType = Field(..., description="Type of nugget: idea, story, or framework")
     title: str = Field(
         ...,
         min_length=5,
@@ -81,24 +78,12 @@ class ExtractOutput(BaseModel):
 class NuggetDimensionScores(BaseModel):
     """Per-dimension scores for a nugget."""
 
-    specificity: int = Field(
-        ge=0, le=100, description="How specific vs generic is this insight?"
-    )
-    novelty: int = Field(
-        ge=0, le=100, description="How fresh/unexpected is this perspective?"
-    )
-    authority: int = Field(
-        ge=0, le=100, description="Does this come from real experience?"
-    )
-    actionability: int = Field(
-        ge=0, le=100, description="Can someone act on this immediately?"
-    )
-    story_energy: int = Field(
-        ge=0, le=100, description="Does this have narrative power?"
-    )
-    audience_resonance: int = Field(
-        ge=0, le=100, description="Will the target audience care?"
-    )
+    specificity: int = Field(ge=0, le=100, description="How specific vs generic is this insight?")
+    novelty: int = Field(ge=0, le=100, description="How fresh/unexpected is this perspective?")
+    authority: int = Field(ge=0, le=100, description="Does this come from real experience?")
+    actionability: int = Field(ge=0, le=100, description="Can someone act on this immediately?")
+    story_energy: int = Field(ge=0, le=100, description="Does this have narrative power?")
+    audience_resonance: int = Field(ge=0, le=100, description="Will the target audience care?")
 
     @property
     def total_score(self) -> int:
@@ -137,9 +122,7 @@ class MissingField(str, Enum):
 class ScoredNugget(BaseModel):
     """A nugget with scoring information."""
 
-    nugget_index: int = Field(
-        ..., ge=0, description="Index of the nugget in the extraction output"
-    )
+    nugget_index: int = Field(..., ge=0, description="Index of the nugget in the extraction output")
     dimension_scores: NuggetDimensionScores
     missing_fields: list[MissingField] = Field(
         default_factory=list,
@@ -231,18 +214,12 @@ class NextQuestionCandidate(BaseModel):
         ..., ge=0, description="Index of the nugget this question targets"
     )
     gap_type: GapType = Field(..., description="Type of gap this question addresses")
-    impact_score: int = Field(
-        ge=0, le=100, description="Potential impact of getting an answer"
-    )
+    impact_score: int = Field(ge=0, le=100, description="Potential impact of getting an answer")
     leverage_score: int = Field(
         ge=0, le=100, description="How much will this unlock other insights?"
     )
-    momentum_score: int = Field(
-        ge=0, le=100, description="Does this feel like natural next step?"
-    )
-    connectivity_score: int = Field(
-        ge=0, le=100, description="Will this connect to other nodes?"
-    )
+    momentum_score: int = Field(ge=0, le=100, description="Does this feel like natural next step?")
+    connectivity_score: int = Field(ge=0, le=100, description="Will this connect to other nodes?")
     gap_criticality_score: int = Field(
         ge=0, le=100, description="How critical is filling this gap?"
     )

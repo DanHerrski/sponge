@@ -77,14 +77,11 @@ class ConfidenceLevel(str, enum.Enum):
 class Session(Base):
     __tablename__ = "sessions"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_name: Mapped[str | None] = mapped_column(VARCHAR(255))
     topic: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    audience: Mapped[str | None] = mapped_column(VARCHAR(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -97,13 +94,9 @@ class Session(Base):
 
 class ChatTurn(Base):
     __tablename__ = "chat_turns"
-    __table_args__ = (
-        Index("ix_chat_turns_session_turn", "session_id", "turn_number"),
-    )
+    __table_args__ = (Index("ix_chat_turns_session_turn", "session_id", "turn_number"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
@@ -112,22 +105,16 @@ class ChatTurn(Base):
         Enum(ChatRole, name="chat_role", create_constraint=True), nullable=False
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     session: Mapped["Session"] = relationship(back_populates="chat_turns")
 
 
 class Node(Base):
     __tablename__ = "nodes"
-    __table_args__ = (
-        Index("ix_nodes_session", "session_id"),
-    )
+    __table_args__ = (Index("ix_nodes_session", "session_id"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
@@ -137,9 +124,7 @@ class Node(Base):
     title: Mapped[str] = mapped_column(VARCHAR(500), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     embedding = mapped_column(Vector(1536), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     session: Mapped["Session"] = relationship(back_populates="nodes")
     nugget: Mapped["Nugget | None"] = relationship(back_populates="node", uselist=False)
@@ -160,9 +145,7 @@ class Edge(Base):
         Index("ix_edges_session_type", "session_id", "edge_type"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
@@ -175,9 +158,7 @@ class Edge(Base):
     edge_type: Mapped[EdgeType] = mapped_column(
         Enum(EdgeType, name="edge_type", create_constraint=True), nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     session: Mapped["Session"] = relationship(back_populates="edges")
     source_node: Mapped["Node"] = relationship(
@@ -190,13 +171,9 @@ class Edge(Base):
 
 class Nugget(Base):
     __tablename__ = "nuggets"
-    __table_args__ = (
-        Index("ix_nuggets_node", "node_id", unique=True),
-    )
+    __table_args__ = (Index("ix_nuggets_node", "node_id", unique=True),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     node_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("nodes.id", ondelete="CASCADE"), nullable=False, unique=True
     )
@@ -220,22 +197,16 @@ class Nugget(Base):
         nullable=True,
         default=None,
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     node: Mapped["Node"] = relationship(back_populates="nugget")
 
 
 class Provenance(Base):
     __tablename__ = "provenance"
-    __table_args__ = (
-        Index("ix_provenance_node", "node_id"),
-    )
+    __table_args__ = (Index("ix_provenance_node", "node_id"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     node_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("nodes.id", ondelete="CASCADE"), nullable=False
     )
@@ -246,22 +217,16 @@ class Provenance(Base):
     confidence: Mapped[ConfidenceLevel] = mapped_column(
         Enum(ConfidenceLevel, name="confidence_level", create_constraint=True), nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     node: Mapped["Node"] = relationship(back_populates="provenance_records")
 
 
 class Document(Base):
     __tablename__ = "documents"
-    __table_args__ = (
-        Index("ix_documents_session", "session_id"),
-    )
+    __table_args__ = (Index("ix_documents_session", "session_id"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
@@ -269,8 +234,6 @@ class Document(Base):
     content_type: Mapped[str] = mapped_column(VARCHAR(100), nullable=False)
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     session: Mapped["Session"] = relationship(back_populates="documents")

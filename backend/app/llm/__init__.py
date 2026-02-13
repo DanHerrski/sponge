@@ -1,5 +1,6 @@
 """LLM integration module for Sponge knowledge extraction pipeline."""
 
+from app.llm.pipeline import ExtractionPipeline
 from app.llm.schemas import (
     CandidateNugget,
     DedupDecision,
@@ -8,10 +9,9 @@ from app.llm.schemas import (
     NextQuestionCandidate,
     NextQuestionOutput,
     NuggetDimensionScores,
-    ScoreOutput,
     ScoredNugget,
+    ScoreOutput,
 )
-from app.llm.pipeline import ExtractionPipeline
 
 __all__ = [
     "CandidateNugget",

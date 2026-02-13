@@ -1,7 +1,6 @@
 """POST /chat_turn — process user input through the extraction pipeline."""
 
 import logging
-import uuid
 from typing import Union
 
 from fastapi import APIRouter, Depends
@@ -161,9 +160,7 @@ async def create_chat_turn(
         )
 
     # Filter to top 4 nuggets by score, excluding any that were downvoted
-    captured_nuggets = [
-        n for n in captured_nuggets if n.user_feedback != FeedbackValue.down
-    ]
+    captured_nuggets = [n for n in captured_nuggets if n.user_feedback != FeedbackValue.down]
     captured_nuggets = sorted(captured_nuggets, key=lambda n: n.score, reverse=True)[:4]
 
     # Build graph update summary
@@ -190,9 +187,7 @@ async def create_chat_turn(
         # Map nugget index to actual nugget ID
         target_nugget_id = None
         if primary.target_nugget_index < len(pipeline_result.created_nuggets):
-            target_nugget_id = pipeline_result.created_nuggets[
-                primary.target_nugget_index
-            ].id
+            target_nugget_id = pipeline_result.created_nuggets[primary.target_nugget_index].id
 
         if target_nugget_id:
             next_question = NextQuestion(
@@ -206,9 +201,7 @@ async def create_chat_turn(
             for alt in sorted_questions[1:3]:
                 alt_target_id = None
                 if alt.target_nugget_index < len(pipeline_result.created_nuggets):
-                    alt_target_id = pipeline_result.created_nuggets[
-                        alt.target_nugget_index
-                    ].id
+                    alt_target_id = pipeline_result.created_nuggets[alt.target_nugget_index].id
                 if alt_target_id:
                     alternate_paths.append(
                         AlternatePath(
