@@ -146,10 +146,70 @@ class NodeDetailResponse(BaseModel):
 # --- Upload ---
 
 
+class UploadNuggetSummary(BaseModel):
+    nugget_id: uuid.UUID
+    title: str
+    nugget_type: str
+    score: int = Field(ge=0, le=100)
+
+
 class UploadResponse(BaseModel):
     document_id: uuid.UUID
     filename: str
     size_bytes: int
+    message: str
+    nugget_count: int = 0
+    top_nuggets: list[UploadNuggetSummary] = Field(default_factory=list)
+    deep_dive_options: list[str] = Field(default_factory=list)
+
+
+# --- Nugget List ---
+
+
+class NuggetListItem(BaseModel):
+    nugget_id: uuid.UUID
+    node_id: uuid.UUID
+    title: str
+    short_summary: str
+    nugget_type: str
+    score: int = Field(ge=0, le=100)
+    status: str  # "new" | "explored" | "parked"
+    user_feedback: FeedbackValue | None = None
+    missing_fields: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class NuggetListResponse(BaseModel):
+    nuggets: list[NuggetListItem]
+    total: int
+
+
+class NuggetStatusRequest(BaseModel):
+    status: str = Field(
+        ..., description="New status: 'new', 'explored', or 'parked'"
+    )
+
+
+class NuggetStatusResponse(BaseModel):
+    nugget_id: uuid.UUID
+    status: str
+    message: str
+
+
+# --- Onboarding ---
+
+
+class OnboardingRequest(BaseModel):
+    project_name: str = Field(..., min_length=1, max_length=255)
+    topic: str | None = Field(default=None, max_length=500)
+    audience: str | None = Field(default=None, max_length=500)
+
+
+class OnboardingResponse(BaseModel):
+    session_id: uuid.UUID
+    project_name: str
+    topic: str | None = None
+    audience: str | None = None
     message: str
 
 
