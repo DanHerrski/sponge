@@ -26,7 +26,7 @@ class LLMError(Exception):
     pass
 
 
-class ValidationRetryExhausted(Exception):
+class ValidationRetryExhaustedError(Exception):
     """Validation failed after retry."""
 
     pass
@@ -236,7 +236,7 @@ async def call_llm_with_schema(
         Validated Pydantic model instance
 
     Raises:
-        ValidationRetryExhausted: If validation fails after all retries
+        ValidationRetryExhaustedError: If validation fails after all retries
         LLMError: If LLM call fails
     """
     prompt_template = get_prompt(prompt_name)
@@ -264,6 +264,6 @@ async def call_llm_with_schema(
                 )
                 response = await call_llm(correction_prompt, model)
 
-    raise ValidationRetryExhausted(
+    raise ValidationRetryExhaustedError(
         f"Failed to get valid response after {max_retries + 1} attempts: {last_error}"
     )

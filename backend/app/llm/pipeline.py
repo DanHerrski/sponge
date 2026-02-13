@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.llm.client import ValidationRetryExhausted, call_llm_with_schema
+from app.llm.client import ValidationRetryExhaustedError, call_llm_with_schema
 from app.llm.schemas import (
     CandidateNugget,
     DedupDecision,
@@ -109,7 +109,7 @@ class ExtractionPipeline:
                 user_message, session_context
             )
             result.extracted_nuggets = extract_output.nuggets
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Extraction failed: {e}")
             result.extraction_failed = True
             result.failure_reason = "I couldn't identify any distinct ideas from what you shared."
@@ -136,7 +136,7 @@ class ExtractionPipeline:
                 downvoted_context,
             )
             result.scored_nuggets = score_output.scored_nuggets
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Scoring failed: {e}")
             # Use default scores on failure
             result.scored_nuggets = self._default_scores(result.extracted_nuggets)
@@ -159,7 +159,7 @@ class ExtractionPipeline:
                 existing_nodes,
             )
             result.dedup_decisions = dedup_output
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Dedup failed: {e}")
             # Default to create all
             result.dedup_decisions = [
@@ -190,7 +190,7 @@ class ExtractionPipeline:
             )
             result.questions = questions_output.candidates
             result.why_primary = questions_output.why_primary
-        except ValidationRetryExhausted as e:
+        except ValidationRetryExhaustedError as e:
             logger.error(f"Question generation failed: {e}")
             # Use default question
             result.questions = self._default_questions(result.extracted_nuggets)
