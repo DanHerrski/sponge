@@ -3,10 +3,8 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Literal
 
 from pydantic import BaseModel, Field
-
 
 # --- Enums for API ---
 

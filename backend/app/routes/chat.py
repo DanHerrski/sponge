@@ -1,7 +1,6 @@
 """POST /chat_turn — process user input through the extraction pipeline."""
 
 import logging
-import uuid
 from typing import Union
 
 from fastapi import APIRouter, Depends

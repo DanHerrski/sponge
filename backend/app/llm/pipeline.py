@@ -4,7 +4,6 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,11 +17,11 @@ from app.llm.schemas import (
     ExtractOutput,
     NextQuestionCandidate,
     NextQuestionOutput,
-    ScoreOutput,
     ScoredNugget,
+    ScoreOutput,
 )
 from app.models.tables import (
-    ChatTurn,
+    ConfidenceLevel,
     Edge,
     EdgeType,
     Node,
@@ -32,7 +31,6 @@ from app.models.tables import (
     Provenance,
     Session,
     SourceType,
-    ConfidenceLevel,
     UserFeedback,
 )
 
@@ -372,8 +370,16 @@ class ExtractionPipeline:
                 DedupDecision(
                     nugget_index=i,
                     outcome=outcome,
-                    existing_node_id=best_match.node_id if best_match and outcome != DedupOutcome.create else None,
-                    merge_rationale=f"Similar to: {best_match.title}" if best_match and outcome != DedupOutcome.create else None,
+                    existing_node_id=(
+                        best_match.node_id
+                        if best_match and outcome != DedupOutcome.create
+                        else None
+                    ),
+                    merge_rationale=(
+                        f"Similar to: {best_match.title}"
+                        if best_match and outcome != DedupOutcome.create
+                        else None
+                    ),
                     similarity_score=best_similarity,
                 )
             )
@@ -417,9 +423,18 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=score_data.dimension_scores.total_score if score_data else 50,
-                    dimension_scores=score_data.dimension_scores.model_dump() if score_data else None,
-                    missing_fields=[f.value for f in score_data.missing_fields] if score_data else [],
+                    score=(
+                        score_data.dimension_scores.total_score
+                        if score_data else 50
+                    ),
+                    dimension_scores=(
+                        score_data.dimension_scores.model_dump()
+                        if score_data else None
+                    ),
+                    missing_fields=(
+                        [f.value for f in score_data.missing_fields]
+                        if score_data else []
+                    ),
                     next_questions=[],
                 )
                 self.db.add(nugget_record)
@@ -468,9 +483,18 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=score_data.dimension_scores.total_score if score_data else 50,
-                    dimension_scores=score_data.dimension_scores.model_dump() if score_data else None,
-                    missing_fields=[f.value for f in score_data.missing_fields] if score_data else [],
+                    score=(
+                        score_data.dimension_scores.total_score
+                        if score_data else 50
+                    ),
+                    dimension_scores=(
+                        score_data.dimension_scores.model_dump()
+                        if score_data else None
+                    ),
+                    missing_fields=(
+                        [f.value for f in score_data.missing_fields]
+                        if score_data else []
+                    ),
                     next_questions=[],
                 )
                 self.db.add(nugget_record)
@@ -538,8 +562,14 @@ class ExtractionPipeline:
                     "title": nugget.title,
                     "summary": nugget.summary,
                     "type": nugget.nugget_type.value,
-                    "score": score_data.dimension_scores.total_score if score_data else 50,
-                    "missing_fields": [f.value for f in score_data.missing_fields] if score_data else [],
+                    "score": (
+                        score_data.dimension_scores.total_score
+                        if score_data else 50
+                    ),
+                    "missing_fields": (
+                        [f.value for f in score_data.missing_fields]
+                        if score_data else []
+                    ),
                 }
             )
 

@@ -18,24 +18,21 @@ Evaluation hooks:
 - Log follow-up question engagement
 """
 
-import pytest
-from unittest.mock import AsyncMock, patch
-import uuid
 
+import pytest
+
+from app.llm.client import _extract_json
 from app.llm.schemas import (
     CandidateNugget,
     ExtractOutput,
+    GapType,
+    MissingField,
+    NextQuestionCandidate,
     NuggetDimensionScores,
     NuggetType,
-    ScoreOutput,
     ScoredNugget,
-    MissingField,
-    NextQuestionOutput,
-    NextQuestionCandidate,
-    GapType,
+    ScoreOutput,
 )
-from app.llm.client import _extract_json, call_llm_with_schema
-
 
 # --- Test Data ---
 
@@ -121,7 +118,12 @@ class TestLLMSchemas:
         nugget = CandidateNugget(
             nugget_type=NuggetType.idea,
             title="Specific insight about hiring",
-            summary="When hiring engineers, I learned that technical skills matter less than curiosity. In my last three hires, the most successful were those who asked the most questions.",
+            summary=(
+                "When hiring engineers, I learned that technical"
+                " skills matter less than curiosity. In my last"
+                " three hires, the most successful were those who"
+                " asked the most questions."
+            ),
             key_phrases=["hiring", "curiosity", "questions"],
             confidence="high",
         )
@@ -223,15 +225,31 @@ class TestExtractionPipelineIntegration:
                         CandidateNugget(
                             nugget_type=NuggetType.story,
                             title="Stripe incident: relationship-based escalation",
-                            summary="During a 45-minute payment outage at Stripe in 2019, pre-built relationships with AWS support enabled 10-minute escalation instead of 2 hours, saving $6M.",
-                            key_phrases=["Stripe", "AWS support", "relationship", "$6M saved"],
+                            summary=(
+                                "During a 45-minute payment outage at"
+                                " Stripe in 2019, pre-built relationships"
+                                " with AWS support enabled 10-minute"
+                                " escalation instead of 2 hours,"
+                                " saving $6M."
+                            ),
+                            key_phrases=[
+                                "Stripe", "AWS support",
+                                "relationship", "$6M saved",
+                            ],
                             confidence="high",
                         ),
                         CandidateNugget(
                             nugget_type=NuggetType.framework,
                             title="Build relationships before you need them",
-                            summary="A principle for engineering teams: invest in support relationships proactively, not reactively during incidents.",
-                            key_phrases=["relationships", "proactive", "support"],
+                            summary=(
+                                "A principle for engineering teams:"
+                                " invest in support relationships"
+                                " proactively, not reactively during"
+                                " incidents."
+                            ),
+                            key_phrases=[
+                                "relationships", "proactive", "support",
+                            ],
                             confidence="high",
                         ),
                     ]
@@ -309,8 +327,16 @@ class TestExtractionPipelineIntegration:
             assert scored.dimension_scores.total_score >= 70
 
         # Log evaluation metrics
-        avg_score = sum(s.dimension_scores.total_score for s in score_output.scored_nuggets) / len(score_output.scored_nuggets)
-        print(f"[EVAL] Strong anecdote - nugget_count: {len(extract_output.nuggets)}, avg_score: {avg_score:.1f}")
+        scored = score_output.scored_nuggets
+        avg_score = (
+            sum(s.dimension_scores.total_score for s in scored)
+            / len(scored)
+        )
+        nugget_count = len(extract_output.nuggets)
+        print(
+            f"[EVAL] Strong anecdote - nugget_count:"
+            f" {nugget_count}, avg_score: {avg_score:.1f}"
+        )
 
     def test_generic_advice_triggers_low_scores(self, mock_llm_responses):
         """Test that generic advice triggers low scores."""
@@ -326,8 +352,16 @@ class TestExtractionPipelineIntegration:
             assert scored.dimension_scores.total_score < 30
 
         # Log evaluation metrics
-        avg_score = sum(s.dimension_scores.total_score for s in score_output.scored_nuggets) / len(score_output.scored_nuggets)
-        print(f"[EVAL] Generic advice - nugget_count: {len(extract_output.nuggets)}, avg_score: {avg_score:.1f}")
+        scored = score_output.scored_nuggets
+        avg_score = (
+            sum(s.dimension_scores.total_score for s in scored)
+            / len(scored)
+        )
+        nugget_count = len(extract_output.nuggets)
+        print(
+            f"[EVAL] Generic advice - nugget_count:"
+            f" {nugget_count}, avg_score: {avg_score:.1f}"
+        )
 
 
 # --- Evaluation Hooks ---
@@ -370,11 +404,17 @@ class EvaluationMetrics:
 
         return {
             "total_extractions": len(self.nugget_counts),
-            "avg_nuggets_per_turn": sum(self.nugget_counts) / len(self.nugget_counts) if self.nugget_counts else 0,
+            "avg_nuggets_per_turn": (
+                sum(self.nugget_counts) / len(self.nugget_counts)
+                if self.nugget_counts else 0
+            ),
             "avg_score": sum(self.avg_scores) / len(self.avg_scores) if self.avg_scores else 0,
             "feedback_up_rate": self.feedback_up / total_feedback if total_feedback else 0,
             "feedback_down_rate": self.feedback_down / total_feedback if total_feedback else 0,
-            "question_follow_rate": self.questions_followed / total_questions if total_questions else 0,
+            "question_follow_rate": (
+                self.questions_followed / total_questions
+                if total_questions else 0
+            ),
         }
 
 

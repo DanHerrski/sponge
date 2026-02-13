@@ -75,7 +75,12 @@ async def _call_stub(prompt: str, model: str = "stub") -> str:
                     {
                         "nugget_type": "idea",
                         "title": "Stub extracted insight from user input",
-                        "summary": "This is a stub extraction. In production, the LLM would extract real insights from the user's message based on their specific content and experience.",
+                        "summary": (
+                            "This is a stub extraction. In production,"
+                            " the LLM would extract real insights from"
+                            " the user's message based on their"
+                            " specific content and experience."
+                        ),
                         "key_phrases": ["stub", "extraction"],
                         "confidence": "medium",
                     }
@@ -152,7 +157,10 @@ async def _call_stub(prompt: str, model: str = "stub") -> str:
                         "gap_criticality_score": 60,
                     },
                 ],
-                "why_primary": "A concrete example would make this insight more compelling and memorable.",
+                "why_primary": (
+                    "A concrete example would make this insight"
+                    " more compelling and memorable."
+                ),
             }
         )
     else:
