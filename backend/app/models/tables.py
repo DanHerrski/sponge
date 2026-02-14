@@ -67,7 +67,7 @@ class SourceType(str, enum.Enum):
 
 class ConfidenceLevel(str, enum.Enum):
     low = "low"
-    med = "med"
+    medium = "medium"
     high = "high"
 
 

@@ -107,6 +107,31 @@ Also identify 1-3 MISSING_FIELDS that would strengthen each nugget:
 - "audience": Needs clearer target audience
 - "outcome": Needs to show results
 
+ANCHOR EXAMPLES — calibrate your scores against these references:
+
+HIGH (90+ total):
+  "At Stripe in 2019, a 45-minute payment outage cost $2M. Our on-call engineer
+  had built a personal relationship with AWS support over 6 months — she got us
+  escalated to a principal engineer in 10 minutes instead of 2 hours, saving $6M."
+  → specificity:95, novelty:80, authority:90, actionability:70,
+    story_energy:90, audience_resonance:85
+
+HIGH (85+ total):
+  "We created a '3-before-3' rule: every new engineer must build 3 external
+  vendor relationships in their first 3 months. We measure it in onboarding
+  reviews. Teams that adopted it resolved incidents 40%% faster."
+  → specificity:85, novelty:75, authority:85, actionability:90,
+    story_energy:55, audience_resonance:85
+
+LOW (25 total):
+  "Communication is really important in leadership. You need to be a good
+  listener and make sure your team feels heard. It's all about building trust."
+  → specificity:15, novelty:10, authority:15, actionability:20,
+    story_energy:10, audience_resonance:25
+
+Use these anchors to ensure HIGH scores have specific details, names, and metrics,
+and LOW scores reflect generic advice that anyone could give.
+
 Nuggets to score:
 {nuggets_json}
 

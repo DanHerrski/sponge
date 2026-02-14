@@ -1,6 +1,6 @@
 # Sponge — Engineering Task Tracker
 
-**Last updated:** 2026-02-13
+**Last updated:** 2026-02-14
 **Legend:** P0 = must-ship | ST = steel thread critical | Size in dev-days
 
 ---
@@ -68,7 +68,7 @@
 
 | ID | Task | Epic | Size | Blocked by | Priority |
 |----|------|------|------|------------|----------|
-| B2.10 | Integration test: full user journey (onboard → chat → upload → inbox → drawer) | New | 1d | All above | P0 |
+| — | All Bet 2 tasks complete | — | — | — | — |
 
 ### DOING
 
@@ -80,6 +80,7 @@
 
 | ID | Task | Epic | Completed | Notes |
 |----|------|------|-----------|-------|
+| B2.10 | Integration test: full user journey (onboard → chat → upload → inbox → drawer) | New | 2026-02-14 | 8 tests: full journey + 7 edge cases; async SQLite with type adapters |
 | 9.1 | FileStore abstraction: `save`, `get`, `delete` (local filesystem) | E9 | 2026-02-13 | services/filestore.py with save/get/delete |
 | 9.2 | Text parser: extract text from .txt and .docx | E9 | 2026-02-13 | services/parser.py with python-docx support |
 | 9.3 | Semantic chunker: paragraph/topic-based splitting | E9 | 2026-02-13 | services/chunker.py — paragraph merge + sentence split |
@@ -104,12 +105,7 @@
 
 | ID | Task | Epic | Size | Blocked by | Priority |
 |----|------|------|------|------------|----------|
-| 10.1 | Structured logging middleware: per-turn metrics (nugget count, scores, latency) | E10 | 1d | — | P0 |
-| 10.2 | Anti-generic filter: Novelty < 20 → demote from top results | E10 | 0.5d | — | P0 |
-| 10.3 | Duplication rate metric: track dedup triggers per session | E10 | 0.5d | — | P0 |
-| 10.4 | Soft contradiction detection: embedding similarity + sentiment → `contradicts` edge | E10 | 1d | — | P0 |
 | 10.5 | Follow-through tracking: suggested question vs. user's next message | E10 | 1d | 10.1 | P0 |
-| B3.1 | Scoring anchor examples: 3 high (90+) + 3 low (30-) references in prompt | New | 0.5d | — | P0 |
 | B3.2 | Per-dimension weight tuning: evaluate on 30 synthetic nuggets | New | 1d | B3.1 | P0 |
 | B3.3 | Score distribution monitoring: log variance, alert if stdev < 10 | New | 0.5d | B3.2 | P0 |
 | B3.4 | Labeled dedup eval set: 50 nugget pairs with gold labels | New | 1d | — | P0 |
@@ -127,7 +123,11 @@
 
 | ID | Task | Epic | Completed | Notes |
 |----|------|------|-----------|-------|
-| — | — | — | — | — |
+| 10.1 | Structured logging middleware: per-turn metrics (nugget count, scores, latency) | E10 | 2026-02-14 | TurnMetrics dataclass with 20+ fields; JSON log per turn via pipeline |
+| 10.2 | Anti-generic filter: Novelty < 20 → demote from top results | E10 | 2026-02-14 | `_compute_persisted_score` halves score when novelty < 20 |
+| 10.3 | Duplication rate metric: track dedup triggers per session | E10 | 2026-02-14 | Per-turn dedup_rate + session-level `_get_session_dedup_rate` |
+| 10.4 | Soft contradiction detection: negation words + word overlap → `contradicts` edge | E10 | 2026-02-14 | `_detect_contradictions` with negation signals heuristic |
+| B3.1 | Scoring anchor examples: 2 high + 1 low reference in scoring prompt | New | 2026-02-14 | Anchored to Stripe incident (high) + generic advice (low) |
 
 ---
 
@@ -168,16 +168,17 @@
 | Bet | Task Count | Total Effort | Status |
 |-----|-----------|--------------|--------|
 | Bet 1 — Steel Thread | 36 | ~28.5d | **COMPLETE** |
-| Bet 2 — Ingestion & Engagement | 16 | ~15d | 15/16 done (integration test remaining) |
-| Bet 3 — Quality & Tuning | 12 | ~10d | Not started |
+| Bet 2 — Ingestion & Engagement | 16 | ~15d | **COMPLETE** |
+| Bet 3 — Quality & Tuning | 12 | ~10d | 5/12 done (observability + anti-generic + anchors) |
 | Bet 4 — User Validation | 11 | ~10d | Not started |
 | **Total** | **75** | **~63.5d** | |
 
 ## Critical Path
 
 ```
-Bet 1: COMPLETE ✓
-Bet 2: 15/16 tasks done — only B2.10 (integration test) remains
+Bet 1: COMPLETE
+Bet 2: COMPLETE
+Bet 3: 5/12 done — next: 10.5 (follow-through), B3.2 (weight tuning), B3.4 (dedup eval set)
 Next: Bet 3 (Quality & Tuning) → Bet 4 (User Validation)
 ```
 

@@ -2,10 +2,11 @@
 
 import json
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -38,8 +39,41 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 MIN_SCORE_THRESHOLD = 30
+ANTI_GENERIC_NOVELTY_THRESHOLD = 20
 SIMILARITY_THRESHOLD = 0.85
+CONTRADICTION_SIMILARITY_FLOOR = 0.3
 MAX_GRAPH_NODES = 20
+
+
+@dataclass
+class TurnMetrics:
+    """Structured per-turn telemetry (task 10.1)."""
+
+    session_id: str = ""
+    turn_id: str = ""
+    extracted_count: int = 0
+    scored_count: int = 0
+    created_count: int = 0
+    merged_count: int = 0
+    linked_count: int = 0
+    demoted_generic_count: int = 0
+    avg_score: float = 0.0
+    min_score: int = 0
+    max_score: int = 0
+    score_stdev: float = 0.0
+    dedup_trigger_count: int = 0
+    dedup_rate: float = 0.0
+    contradiction_count: int = 0
+    selected_question: str = ""
+    selected_gap_type: str = ""
+    user_message_length: int = 0
+    extraction_failed: bool = False
+    total_latency_ms: float = 0.0
+    extract_latency_ms: float = 0.0
+    score_latency_ms: float = 0.0
+    dedup_latency_ms: float = 0.0
+    persist_latency_ms: float = 0.0
+    question_latency_ms: float = 0.0
 
 
 @dataclass
@@ -56,6 +90,7 @@ class PipelineResult:
     why_primary: str = ""
     extraction_failed: bool = False
     failure_reason: str = ""
+    metrics: TurnMetrics = field(default_factory=TurnMetrics)
 
 
 @dataclass
@@ -87,14 +122,22 @@ class ExtractionPipeline:
         Steps:
         1. Extract candidate nuggets from user message
         2. Score nuggets with dimension breakdowns
+        2b. Anti-generic filter: demote nuggets with Novelty < 20
         3. Deduplicate against existing nodes
         4. Persist new nodes, edges, nuggets, and provenance
+        4b. Soft contradiction detection
         5. Generate next-best questions
+        6. Emit structured telemetry log
 
         Returns:
             PipelineResult with all outputs
         """
+        t_start = time.monotonic()
         result = PipelineResult()
+        metrics = result.metrics
+        metrics.session_id = str(self.session_id)
+        metrics.turn_id = str(chat_turn_id)
+        metrics.user_message_length = len(user_message)
 
         # Get session context
         session_context = await self._get_session_context()
@@ -102,6 +145,7 @@ class ExtractionPipeline:
         existing_nodes = await self._get_existing_nodes()
 
         # Step 1: Extract nuggets
+        t0 = time.monotonic()
         try:
             extract_output = await self._extract_nuggets(user_message, session_context)
             result.extracted_nuggets = extract_output.nuggets
@@ -109,12 +153,17 @@ class ExtractionPipeline:
             logger.error(f"Extraction failed: {e}")
             result.extraction_failed = True
             result.failure_reason = "I couldn't identify any distinct ideas from what you shared."
+            metrics.extraction_failed = True
+            self._emit_metrics(metrics, t_start)
             return result
+        metrics.extract_latency_ms = (time.monotonic() - t0) * 1000
 
         # Check for extraction failure (no nuggets)
         if not result.extracted_nuggets:
             result.extraction_failed = True
             result.failure_reason = "I couldn't identify any distinct ideas from what you shared."
+            metrics.extraction_failed = True
+            self._emit_metrics(metrics, t_start)
             return result
 
         # Filter low-confidence nuggets if we have alternatives
@@ -122,7 +171,10 @@ class ExtractionPipeline:
         if high_confidence:
             result.extracted_nuggets = high_confidence
 
+        metrics.extracted_count = len(result.extracted_nuggets)
+
         # Step 2: Score nuggets
+        t0 = time.monotonic()
         try:
             score_output = await self._score_nuggets(
                 result.extracted_nuggets,
@@ -134,6 +186,15 @@ class ExtractionPipeline:
             logger.error(f"Scoring failed: {e}")
             # Use default scores on failure
             result.scored_nuggets = self._default_scores(result.extracted_nuggets)
+        metrics.score_latency_ms = (time.monotonic() - t0) * 1000
+
+        # Step 2b: Anti-generic filter (task 10.2)
+        # Demote nuggets with Novelty < ANTI_GENERIC_NOVELTY_THRESHOLD
+        demoted_count = 0
+        for scored in result.scored_nuggets:
+            if scored.dimension_scores.novelty < ANTI_GENERIC_NOVELTY_THRESHOLD:
+                demoted_count += 1
+        metrics.demoted_generic_count = demoted_count
 
         # Check if all nuggets are below threshold
         valid_nuggets = [
@@ -144,9 +205,24 @@ class ExtractionPipeline:
         if not valid_nuggets:
             result.extraction_failed = True
             result.failure_reason = "The ideas I captured seem too vague or general to be useful."
+            metrics.extraction_failed = True
+            self._emit_metrics(metrics, t_start)
             return result
 
+        # Compute score statistics for metrics
+        all_scores = [s.dimension_scores.total_score for s in result.scored_nuggets]
+        metrics.scored_count = len(all_scores)
+        metrics.avg_score = sum(all_scores) / len(all_scores) if all_scores else 0.0
+        metrics.min_score = min(all_scores) if all_scores else 0
+        metrics.max_score = max(all_scores) if all_scores else 0
+        if len(all_scores) > 1:
+            mean = metrics.avg_score
+            metrics.score_stdev = (
+                sum((s - mean) ** 2 for s in all_scores) / len(all_scores)
+            ) ** 0.5
+
         # Step 3: Deduplicate
+        t0 = time.monotonic()
         try:
             dedup_output = await self._deduplicate(
                 result.extracted_nuggets,
@@ -165,8 +241,23 @@ class ExtractionPipeline:
                 )
                 for i in range(len(result.extracted_nuggets))
             ]
+        metrics.dedup_latency_ms = (time.monotonic() - t0) * 1000
+
+        # Dedup rate metrics (task 10.3)
+        for d in result.dedup_decisions:
+            if d.outcome == DedupOutcome.merge:
+                metrics.merged_count += 1
+                metrics.dedup_trigger_count += 1
+            elif d.outcome in (DedupOutcome.link_expands, DedupOutcome.link_related):
+                metrics.linked_count += 1
+                metrics.dedup_trigger_count += 1
+        total_decisions = len(result.dedup_decisions)
+        metrics.dedup_rate = (
+            metrics.dedup_trigger_count / total_decisions if total_decisions else 0.0
+        )
 
         # Step 4: Persist to graph
+        t0 = time.monotonic()
         await self._persist_graph(
             result.extracted_nuggets,
             result.scored_nuggets,
@@ -174,8 +265,18 @@ class ExtractionPipeline:
             chat_turn_id,
             result,
         )
+        metrics.persist_latency_ms = (time.monotonic() - t0) * 1000
+        metrics.created_count = len(result.created_nodes)
+
+        # Step 4b: Soft contradiction detection (task 10.4)
+        t0 = time.monotonic()
+        contradiction_count = await self._detect_contradictions(
+            result.created_nodes, existing_nodes
+        )
+        metrics.contradiction_count = contradiction_count
 
         # Step 5: Generate questions
+        t0 = time.monotonic()
         try:
             questions_output = await self._generate_questions(
                 result.extracted_nuggets,
@@ -190,8 +291,157 @@ class ExtractionPipeline:
             # Use default question
             result.questions = self._default_questions(result.extracted_nuggets)
             result.why_primary = "Let's explore this further with a concrete example."
+        metrics.question_latency_ms = (time.monotonic() - t0) * 1000
+
+        # Record selected question
+        if result.questions:
+            best_q = max(result.questions, key=lambda q: q.total_score)
+            metrics.selected_question = best_q.question
+            metrics.selected_gap_type = best_q.gap_type.value
+
+        # Step 6: Emit structured telemetry (task 10.1)
+        self._emit_metrics(metrics, t_start)
+
+        # Session-level dedup rate log (task 10.3)
+        session_dedup_rate = await self._get_session_dedup_rate()
+        logger.info(
+            "session_dedup_rate",
+            extra={
+                "session_id": str(self.session_id),
+                "session_dedup_rate": round(session_dedup_rate, 3),
+            },
+        )
 
         return result
+
+    async def _get_session_dedup_rate(self) -> float:
+        """Compute session-level dedup rate: fraction of edges that are
+        ``expands_on`` or ``contradicts`` vs total nodes (task 10.3)."""
+        node_count_result = await self.db.execute(
+            select(func.count(Node.id)).where(Node.session_id == self.session_id)
+        )
+        node_count = node_count_result.scalar_one()
+        if node_count == 0:
+            return 0.0
+
+        dedup_edge_result = await self.db.execute(
+            select(func.count(Edge.id))
+            .where(Edge.session_id == self.session_id)
+            .where(Edge.edge_type.in_([EdgeType.expands_on, EdgeType.contradicts]))
+        )
+        dedup_edge_count = dedup_edge_result.scalar_one()
+        return dedup_edge_count / node_count
+
+    def _emit_metrics(self, metrics: TurnMetrics, t_start: float) -> None:
+        """Emit structured per-turn metrics as a JSON log line."""
+        metrics.total_latency_ms = (time.monotonic() - t_start) * 1000
+        logger.info(
+            "pipeline_turn_metrics",
+            extra={
+                "turn_metrics": {
+                    "session_id": metrics.session_id,
+                    "turn_id": metrics.turn_id,
+                    "extracted_count": metrics.extracted_count,
+                    "scored_count": metrics.scored_count,
+                    "created_count": metrics.created_count,
+                    "merged_count": metrics.merged_count,
+                    "linked_count": metrics.linked_count,
+                    "demoted_generic_count": metrics.demoted_generic_count,
+                    "avg_score": round(metrics.avg_score, 1),
+                    "min_score": metrics.min_score,
+                    "max_score": metrics.max_score,
+                    "score_stdev": round(metrics.score_stdev, 1),
+                    "dedup_trigger_count": metrics.dedup_trigger_count,
+                    "dedup_rate": round(metrics.dedup_rate, 3),
+                    "contradiction_count": metrics.contradiction_count,
+                    "selected_question": metrics.selected_question[:100],
+                    "selected_gap_type": metrics.selected_gap_type,
+                    "user_message_length": metrics.user_message_length,
+                    "extraction_failed": metrics.extraction_failed,
+                    "total_latency_ms": round(metrics.total_latency_ms, 1),
+                    "extract_latency_ms": round(metrics.extract_latency_ms, 1),
+                    "score_latency_ms": round(metrics.score_latency_ms, 1),
+                    "dedup_latency_ms": round(metrics.dedup_latency_ms, 1),
+                    "persist_latency_ms": round(metrics.persist_latency_ms, 1),
+                    "question_latency_ms": round(metrics.question_latency_ms, 1),
+                }
+            },
+        )
+
+    async def _detect_contradictions(
+        self,
+        new_nodes: list[Node],
+        existing_nodes: list[ExistingNodeContext],
+    ) -> int:
+        """Soft contradiction detection (task 10.4).
+
+        Uses simple heuristic: if a new node's title contains a negation
+        word and shares significant word overlap with an existing node,
+        flag it as a potential contradiction by creating a ``contradicts``
+        edge.  Returns the number of contradiction edges created.
+        """
+        if not new_nodes or not existing_nodes:
+            return 0
+
+        negation_signals = {
+            "not",
+            "never",
+            "don't",
+            "dont",
+            "shouldn't",
+            "shouldnt",
+            "avoid",
+            "stop",
+            "wrong",
+            "myth",
+            "overrated",
+            "instead",
+            "contrary",
+            "opposite",
+            "actually",
+            "however",
+            "but",
+        }
+
+        contradiction_count = 0
+        for node in new_nodes:
+            node_words = set(node.title.lower().split())
+            has_negation = bool(node_words & negation_signals)
+
+            if not has_negation:
+                continue
+
+            content_words = node_words - negation_signals
+            for existing in existing_nodes:
+                existing_words = set(existing.title.lower().split())
+                if not content_words or not existing_words:
+                    continue
+
+                overlap = len(content_words & existing_words)
+                union = len(content_words | existing_words)
+                similarity = overlap / union if union > 0 else 0.0
+
+                if similarity >= CONTRADICTION_SIMILARITY_FLOOR:
+                    edge = Edge(
+                        session_id=self.session_id,
+                        source_id=node.id,
+                        target_id=uuid.UUID(existing.node_id),
+                        edge_type=EdgeType.contradicts,
+                    )
+                    self.db.add(edge)
+                    contradiction_count += 1
+                    logger.info(
+                        "contradiction_detected",
+                        extra={
+                            "new_node": node.title,
+                            "existing_node": existing.title,
+                            "similarity": round(similarity, 3),
+                        },
+                    )
+
+        if contradiction_count:
+            await self.db.flush()
+        return contradiction_count
 
     async def _get_session_context(self) -> str:
         """Get context from session onboarding data + existing high-value nuggets."""
@@ -379,6 +629,21 @@ class ExtractionPipeline:
 
         return decisions
 
+    @staticmethod
+    def _compute_persisted_score(score_data: ScoredNugget | None) -> int:
+        """Compute the final persisted score, applying anti-generic demotion.
+
+        If the nugget's Novelty dimension is below the anti-generic threshold,
+        the persisted score is halved so the nugget won't surface in top results
+        (task 10.2).
+        """
+        if score_data is None:
+            return 50
+        raw = score_data.dimension_scores.total_score
+        if score_data.dimension_scores.novelty < ANTI_GENERIC_NOVELTY_THRESHOLD:
+            return max(0, raw // 2)
+        return raw
+
     async def _persist_graph(
         self,
         nuggets: list[CandidateNugget],
@@ -416,7 +681,7 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=(score_data.dimension_scores.total_score if score_data else 50),
+                    score=self._compute_persisted_score(score_data),
                     dimension_scores=(
                         score_data.dimension_scores.model_dump() if score_data else None
                     ),
@@ -471,7 +736,7 @@ class ExtractionPipeline:
                     nugget_type=NuggetType(nugget.nugget_type.value),
                     title=nugget.title,
                     short_summary=nugget.summary[:200],
-                    score=(score_data.dimension_scores.total_score if score_data else 50),
+                    score=self._compute_persisted_score(score_data),
                     dimension_scores=(
                         score_data.dimension_scores.model_dump() if score_data else None
                     ),
